@@ -1,0 +1,6 @@
+# Macro for rdecay2scintillator with no visual
+/control/verbose 2
+/run/verbose 2
+/run/initialize
+
+

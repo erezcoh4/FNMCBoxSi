@@ -1,0 +1,17 @@
+/control/execute vis.mac
+#
+#/gun/particle ion
+#/gun/ion 11 22
+#
+# /rdecay02/fullChain true
+#
+#/analysis/setFileName rdecay02
+#/analysis/h1/set 1  100  0. 1 MeV    #e+ e-
+#/analysis/h1/set 2  100  0. 2 MeV    #neutrino
+#/analysis/h1/set 3  100  0. 2 MeV    #gamma
+#/analysis/h1/set 8  100  0. 20 y     #time of life
+#
+/run/printProgress 1
+#  
+/run/beamOn 5
+exit

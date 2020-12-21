@@ -1,0 +1,42 @@
+#
+/control/verbose 2
+/run/verbose 2
+
+/run/initialize
+
+/vis/open OGL 600x600-0+0
+/vis/viewer/set/autoRefresh false
+/vis/verbose errors
+/vis/drawVolume
+/vis/viewer/set/viewpointThetaPhi 90. 90.
+/vis/viewer/zoom 1
+/vis/viewer/set/style wireframe
+/vis/geometry/set/visibility World 0 false
+
+/vis/scene/add/axes 0 0 0 100 mm
+
+/vis/scene/add/trajectories smooth
+/vis/modeling/trajectories/create/drawByCharge
+/vis/modeling/trajectories/drawByCharge-0/default/setDrawStepPts false
+/vis/modeling/trajectories/drawByCharge-0/default/setStepPtsSize 1
+/vis/modeling/trajectories/create/drawByParticleID
+/vis/modeling/trajectories/drawByParticleID-0/set e- red
+/vis/modeling/trajectories/drawByParticleID-0/set e+ red
+/vis/modeling/trajectories/drawByParticleID-0/set gamma green
+/vis/modeling/trajectories/drawByParticleID-0/set neutron yellow
+/vis/modeling/trajectories/drawByParticleID-0/set alpha blue
+/vis/modeling/trajectories/drawByParticleID-0/set GenericIon blue
+
+# do not draw neutrinos
+/vis/filtering/trajectories/create/particleFilter
+/vis/filtering/trajectories/particleFilter-0/add nu_e
+/vis/filtering/trajectories/particleFilter-0/invert true
+
+
+/vis/scene/endOfEventAction accumulate
+/vis/viewer/set/autoRefresh true
+/vis/verbose warnings
+
+/vis/viewer/set/background white
+/run/beamOn 1
+
