@@ -32,6 +32,8 @@
 #define PhysicsList_h 1
 
 #include "G4VModularPhysicsList.hh"
+#include "G4HadronElasticPhysics.hh"
+
 #include "globals.hh"
 
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
@@ -42,6 +44,7 @@ public:
   PhysicsList();
     ~PhysicsList();
     
+    G4HadronElasticPhysics * g4HadronElasticPhysics;
 public:
     virtual void ConstructParticle();
     virtual void SetCuts();

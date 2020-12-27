@@ -5,6 +5,7 @@
 #define ActionInitialization_h 1
 
 #include "G4VUserActionInitialization.hh"
+#include "G4String.hh"
 
 class DetectorConstruction;
 class G4VSteppingVerbose;
@@ -23,6 +24,10 @@ public:
     
     virtual G4VSteppingVerbose* InitializeSteppingVerbose() const;
     int fdebug;
+    
+    // prints
+    void Debug (int verobosity_level, G4String text) { if ( fdebug > verobosity_level ) std::cout << text << std::endl; }
+
 private:
     DetectorConstruction* fDetector;
 };

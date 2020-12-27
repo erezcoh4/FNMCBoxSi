@@ -35,7 +35,7 @@
 int main(int argc,char** argv) {
     // verbosity
     // ToDo: move this somehow to the macro file???
-    int fdebug = 2;
+    int fdebug = 0;
     
     //detect interactive mode (if no arguments) and define UI session
     G4UIExecutive* ui = 0;
@@ -106,7 +106,7 @@ int main(int argc,char** argv) {
         //   visManager = new G4VisExecutive;
         //   visManager->Initialize();
         // interactive mode
-        if (fdebug>1) std::cout << "UImanager->ApplyCommand(/control/execute erez_vis.mac);" << std::endl;
+        if (fdebug>1) std::cout << "UImanager->ApplyCommand(/control/execute vis.mac);" << std::endl;
         //        UImanager->ApplyCommand("/control/execute vis.mac");
         UImanager->ApplyCommand("/control/execute vis.mac");
         if (fdebug>1) std::cout << "ui->SessionStart();" << std::endl;

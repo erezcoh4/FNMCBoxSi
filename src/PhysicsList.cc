@@ -1,32 +1,5 @@
-//
-// ********************************************************************
-// * License and Disclaimer                                           *
-// *                                                                  *
-// * The  Geant4 software  is  copyright of the Copyright Holders  of *
-// * the Geant4 Collaboration.  It is provided  under  the terms  and *
-// * conditions of the Geant4 Software License,  included in the file *
-// * LICENSE and available at  http://cern.ch/geant4/license .  These *
-// * include a list of copyright holders.                             *
-// *                                                                  *
-// * Neither the authors of this software system, nor their employing *
-// * institutes,nor the agencies providing financial support for this *
-// * work  make  any representation or  warranty, express or implied, *
-// * regarding  this  software system or assume any liability for its *
-// * use.  Please see the license in the file  LICENSE  and URL above *
-// * for the full disclaimer and the limitation of liability.         *
-// *                                                                  *
-// * This  code  implementation is the result of  the  scientific and *
-// * technical work of the GEANT4 collaboration.                      *
-// * By using,  copying,  modifying or  distributing the software (or *
-// * any work based  on the software)  you  agree  to acknowledge its *
-// * use  in  resulting  scientific  publications,  and indicate your *
-// * acceptance of all terms of the Geant4 Software license.          *
-// ********************************************************************
-//
 /// \file PhysicsList.cc
 /// \brief Implementation of the PhysicsList class
-//
-
 
 #include "PhysicsList.hh"
 
@@ -41,6 +14,14 @@
 #include "G4IonConstructor.hh"
 #include "G4PhysicsListHelper.hh"
 #include "QBBC.hh"
+#include "FTFP_BERT.hh"
+//#include "HadronElasticPhysicsHP.hh"
+#include "G4HadronElasticPhysics.hh"
+
+#include "G4ParticleHPElastic.hh"
+#include "G4ParticleHPElasticData.hh"
+#include "G4ParticleHPThermalScattering.hh"
+#include "G4ParticleHPThermalScatteringData.hh"
 
 #include "G4EmStandardPhysics.hh"
 #include "G4EmExtraPhysics.hh"
@@ -72,7 +53,7 @@
 PhysicsList::PhysicsList()
 :G4VModularPhysicsList()
 {
-    G4int verb = 1;
+    G4int verb = 0;
     SetVerboseLevel(verb);
     
     //add new units for radioActive decays
@@ -95,7 +76,6 @@ PhysicsList::PhysicsList()
     G4NuclideTable::GetInstance()->SetLevelTolerance(1.0*eV);
     
     //read new PhotonEvaporation data set
-    //
     G4DeexPrecoParameters* deex =
     G4NuclearLevelData::GetInstance()->GetParameters();
     deex->SetCorrelatedGamma(true);
@@ -135,11 +115,7 @@ PhysicsList::PhysicsList()
     
     // for positron annihilation
     RegisterPhysics( new G4EmPenelopePhysics() );
-    
-    
-    
-    
-    
+        
     // Gamma-Nuclear Physics
     G4EmExtraPhysics* gnuc = new G4EmExtraPhysics(verb);
     gnuc->ElectroNuclear(false);
@@ -180,6 +156,7 @@ void PhysicsList::ConstructParticle()
 void PhysicsList::SetCuts()
 {
     SetCutValue(0*mm, "proton");
+    SetCutValue(0*mm, "neutron");
     SetCutValue(10*km, "e-");
     SetCutValue(10*km, "e+");
     SetCutValue(10*km, "gamma");
@@ -224,6 +201,16 @@ void PhysicsList::ConstructProcess()
 
 
     
+    // neutron interaction with plastics etc., from [examples/extended/hadronic/NeutronSource/src/HadronElasticPhysicsHP.cc]
+    g4HadronElasticPhysics = new G4HadronElasticPhysics();
+    g4HadronElasticPhysics -> ConstructProcess();
+    g4HadronElasticPhysics -> GetNeutronModel() -> SetMinEnergy(100*keV);
+    G4HadronicProcess* process = g4HadronElasticPhysics -> GetNeutronProcess();
+    G4ParticleHPElastic* model1 = new G4ParticleHPElastic();
+    process->RegisterMe(model1);
+    process->AddDataSet(new G4ParticleHPElasticData());
+
+
     
     //printout
     //

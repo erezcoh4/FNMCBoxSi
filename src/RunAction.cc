@@ -1,41 +1,11 @@
-//
-// ********************************************************************
-// * License and Disclaimer                                           *
-// *                                                                  *
-// * The  Geant4 software  is  copyright of the Copyright Holders  of *
-// * the Geant4 Collaboration.  It is provided  under  the terms  and *
-// * conditions of the Geant4 Software License,  included in the file *
-// * LICENSE and available at  http://cern.ch/geant4/license .  These *
-// * include a list of copyright holders.                             *
-// *                                                                  *
-// * Neither the authors of this software system, nor their employing *
-// * institutes,nor the agencies providing financial support for this *
-// * work  make  any representation or  warranty, express or implied, *
-// * regarding  this  software system or assume any liability for its *
-// * use.  Please see the license in the file  LICENSE  and URL above *
-// * for the full disclaimer and the limitation of liability.         *
-// *                                                                  *
-// * This  code  implementation is the result of  the  scientific and *
-// * technical work of the GEANT4 collaboration.                      *
-// * By using,  copying,  modifying or  distributing the software (or *
-// * any work based  on the software)  you  agree  to acknowledge its *
-// * use  in  resulting  scientific  publications,  and indicate your *
-// * acceptance of all terms of the Geant4 Software license.          *
-// ********************************************************************
-//
 /// \file RunAction.cc
 /// \brief Implementation of the RunAction class
-//
-// 
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
-//....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
-
 #include "RunAction.hh"
 #include "Run.hh"
 #include "DetectorConstruction.hh"
 #include "PrimaryGeneratorAction.hh"
 #include "HistoManager.hh"
-
 #include "G4Run.hh"
 #include "G4RunManager.hh"
 #include "G4UnitsTable.hh"
@@ -71,9 +41,13 @@ G4Run* RunAction::GenerateRun()
 }
 
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
+void RunAction::BeginOfRunAction(const G4Run*) {
+    
+    bool do_particles_file = false;
+    bool do_primaries_file = true;
+    bool do_events_file = false;
 
-void RunAction::BeginOfRunAction(const G4Run*)
-{
+    
     // ToDo: initialise global time somehow?
     if (fdebug>1) std::cout << "RunAction::BeginOfRunAction(const G4Run*)" << std::endl;
     // save Rndm status
@@ -89,91 +63,99 @@ void RunAction::BeginOfRunAction(const G4Run*)
         fRun->SetPrimary(particle, energy);
     }
     
-    //    //histograms
-    //    //
-    //    G4AnalysisManager* analysisManager = G4AnalysisManager::Instance();
-    //    if ( analysisManager->IsActive() ) {
-    //        analysisManager->OpenFile();
-    //    }
     
     if (fdebug>1) std::cout << "output files" << std::endl;
     // output files
     // output particles csv file
     // copy from EventAction::EndOfEventAction(const G4Event*evt)
-    char particlesfilename[50];
-    char eventsfilename[50];
-    sprintf(particlesfilename, "%s_particles.csv",fDetector->GetOutputFileLabel());
-    sprintf(eventsfilename, "%s_events.csv",fDetector->GetOutputFileLabel());
+    char particlesfilename[100];
+    sprintf(particlesfilename, "%s_particles.csv",fDetector->GetOutputFileLabel().c_str());
+    char primariesfilename[100];
+    sprintf(primariesfilename, "%s_primaries.csv",fDetector->GetOutputFileLabel().c_str());
+    char eventsfilename[100];
+    sprintf(eventsfilename, "%s_events.csv",fDetector->GetOutputFileLabel().c_str());
+    
     if (fdebug>1){
-        std::cout << "particlesfilename: " << particlesfilename << std::endl;
-        std::cout << "eventsfilename: " << eventsfilename << std::endl;
+        std::cout << "file label: " << fDetector->GetOutputFileLabel()
+        << std::endl
+        << "particlesfilename: " << particlesfilename
+        << std::endl
+        << "eventsfilename: " << eventsfilename
+        << std::endl;
     }
     
-    
+    if (do_particles_file){
     particlescsvfile.open(particlesfilename, std::ios_base::out);
     
     particlescsvfile
-    << "eventId"            << ","
-    << "trackId"            << ","
-    << "parentId"           << ","
-    << "PrtclName"          << ","
-    << "|p_init|/MeV"       << ","
-    << "CreatorProcessName" << ",";
-
+    << "eventId"                << ","
+    << "trackId"                << ","
+    << "parentId"               << ","
+    << "PrtclName"              << ","
+    << "|p_init|/MeV"           << ","
+    << "theta/deg"              << ","
+    << "phi/deg"                << ","
+    << "CreatorProcessName"     << ","
+    << "NScintillatorsFiredPerPrimary"    << ",";
+    
     // track hit-position and energy deposition in scintillators
-    for (int iVol=0; iVol<4; iVol++){
-        particlescsvfile
-        << "Edep("          <<fDetector->VolumeName(iVol)<<")/MeV"      << ",";
+    for (int facetIdx=0; facetIdx < NFacets; facetIdx++){
+        for (int cellIdx_i=0; cellIdx_i < NCells_i; cellIdx_i++){
+            for (int cellIdx_j=0; cellIdx_j < NCells_j; cellIdx_j++){
+                particlescsvfile << "Edep("  << fDetector->ScintillatorLabel(facetIdx,cellIdx_i,cellIdx_j)<<")/MeV"      << ",";
+            }
+        }
     }
-     
+    
     particlescsvfile
     << "PDGcode"            << ","
     << "p_init_x/MeV"       << ","
     << "p_init_y/MeV"       << ","
     << "p_init_z/MeV"       << ",";
     
-    for (int iVol=0; iVol<4; iVol++){
-        std::string VolName = fDetector->VolumeName(iVol);
-        particlescsvfile
-        << "FirstPt(" <<VolName<<")_Ek/MeV"   << ","
-        << "FirstPt(" <<VolName<<")_time/ns"  << ","
-        << "FirstPt(" <<VolName<<"v_x/mm"     << ","
-        << "FirstPt(" <<VolName<<"v_y/mm"     << ","
-        << "FirstPt(" <<VolName<<")_z/mm"     << ","
-        << "LastPt("  <<VolName<<")_x/mm"     << ","
-        << "LastPt("  <<VolName<<")_y/mm"     << ","
-        << "LastPt("  <<VolName<<")_z/mm"     << ",";
-    }
-    
     // end line
     particlescsvfile << std::endl;
-    
     // close file
     particlescsvfile.close();
-    
-    
-    
-    
-    
-    
-    // output events csv file
-    // copy from EventAction::EndOfEventAction(const G4Event*evt)
-    eventscsvfile.open(eventsfilename, std::ios_base::out);
-    
-    eventscsvfile << "eventId"            << ",";
-    for (int iVol=0; iVol<4; iVol++){
-        eventscsvfile
-        << "EdepTot("      <<fDetector->VolumeName(iVol)<<") e+e-gamma/MeV"      << ","
-        << "EdepTot("      <<fDetector->VolumeName(iVol)<<")/MeV"      << ",";
     }
     
-    // end line
-    eventscsvfile << std::endl;
+    if (do_primaries_file){
+        primariescsvfile.open(primariesfilename, std::ios_base::out);
+        
+        primariescsvfile
+        << "eventId"                << ","
+        << "trackId"                << ","
+        << "parentId"               << ","
+        << "PrtclName"              << ","
+        << "|p_init|/MeV"           << ","
+        << "CreatorProcessName"     << ","
+        << "NScintillatorsFiredPerPrimary"    << ","
+        << "PDGcode"                << ",";
+        // end line
+        primariescsvfile << std::endl;
+        // close file
+        primariescsvfile.close();
+    }
     
-    // close file
-    eventscsvfile.close();
+    if (do_events_file){
+//    // output events csv file
+//    // copy from EventAction::EndOfEventAction(const G4Event*evt)
+//    eventscsvfile.open(eventsfilename, std::ios_base::out);
+//
+//    eventscsvfile << "eventId"            << ",";
+//    for (int iVol=0; iVol<4; iVol++){
+//        eventscsvfile
+//        << "EdepTot("      <<fDetector->VolumeName(iVol)<<") e+e-gamma/MeV"      << ","
+//        << "EdepTot("      <<fDetector->VolumeName(iVol)<<")/MeV"      << ",";
+//    }
+//
+//    // end line
+//    eventscsvfile << std::endl;
+//
+//    // close file
+//    eventscsvfile.close();
 
-
+    }
     
     
     if (fdebug>1) std::cout << "done RunAction::BeginOfRunAction(const G4Run*)" << std::endl;

@@ -25,6 +25,9 @@ class PrimaryGeneratorAction : public G4VUserPrimaryGeneratorAction
     virtual void GeneratePrimaries(G4Event*);
     G4ParticleGun* GetParticleGun() {return fParticleGun;};
 
+    // prints
+    void Debug (int verobosity_level, G4String text) { if ( fdebug > verobosity_level ) std::cout << text << std::endl; }
+    
   private:
     G4ParticleGun*  fParticleGun;        //pointer a to G4 service class
     DetectorConstruction* fDetector;

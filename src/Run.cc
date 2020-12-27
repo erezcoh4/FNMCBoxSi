@@ -248,9 +248,7 @@ void Run::Merge(const G4Run* run)
 } 
 
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
-
-void Run::EndOfRun() 
-{
+void Run::EndOfRun() {
     int fdebug=0;
     
     if (fdebug>1) std::cout << "start Run::EndOfRun()" << std::endl;
@@ -287,7 +285,7 @@ void Run::EndOfRun()
     if (rmsEdep>0.) rmsEdep = std::sqrt(rmsEdep);
     else            rmsEdep = 0.;
     
-    G4cout << "\n Mean energy deposit in target,   in time window = "
+    if (fdebug>1) G4cout << "\n Mean energy deposit in target,   in time window = "
     << G4BestUnit(fEdepTarget,"Energy") << ";  rms = "
     << G4BestUnit(rmsEdep,    "Energy")
     << G4endl;
@@ -300,44 +298,44 @@ void Run::EndOfRun()
     if (rmsEdep>0.) rmsEdep = std::sqrt(rmsEdep);
     else            rmsEdep = 0.;
     
-    G4cout << " Mean energy deposit in detector, in time window = "
+    if (fdebug>1) G4cout << " Mean energy deposit in detector, in time window = "
     << G4BestUnit(fEdepDetect,"Energy") << ";  rms = "
     << G4BestUnit(rmsEdep,    "Energy")
     << G4endl;
     
     // frequency of processes in target
     //
-    G4cout << "\n Process calls frequency in target :" << G4endl;
+    if (fdebug>1) G4cout << "\n Process calls frequency in target :" << G4endl;
     G4int index = 0;
     std::map<G4String,G4int>::iterator it1;
     for (it1 = fProcCounter1.begin(); it1 != fProcCounter1.end(); it1++) {
         G4String procName = it1->first;
         G4int    count    = it1->second;
         G4String space = " "; if (++index%3 == 0) space = "\n";
-        G4cout << " " << std::setw(20) << procName << "="<< std::setw(7) << count
+        if (fdebug>1) G4cout << " " << std::setw(20) << procName << "="<< std::setw(7) << count
         << space;
     }
-    G4cout << G4endl;
+    if (fdebug>1) G4cout << G4endl;
     
     if (fdebug>1) std::cout << "frequency of processes in detector" << std::endl;
     // frequency of processes in detector
     //
-    G4cout << "\n Process calls frequency in detector:" << G4endl;
+    if (fdebug>1)G4cout << "\n Process calls frequency in detector:" << G4endl;
     index = 0;
     std::map<G4String,G4int>::iterator it2;
     for (it2 = fProcCounter2.begin(); it2 != fProcCounter2.end(); it2++) {
         G4String procName = it2->first;
         G4int    count    = it2->second;
         G4String space = " "; if (++index%3 == 0) space = "\n";
-        G4cout << " " << std::setw(20) << procName << "="<< std::setw(7) << count
+        if (fdebug>1) G4cout << " " << std::setw(20) << procName << "="<< std::setw(7) << count
         << space;
     }
-    G4cout << G4endl;
+    if (fdebug>1) G4cout << G4endl;
     
     if (fdebug>1) std::cout << "particles count in target" << std::endl;
     // particles count in target
     //
-    G4cout << "\n List of generated particles in target:" << G4endl;
+    if (fdebug>1) G4cout << "\n List of generated particles in target:" << G4endl;
     
     std::map<G4String,ParticleData>::iterator itc;
     for (itc = fParticleDataMap1.begin(); itc != fParticleDataMap1.end(); itc++) {
@@ -348,7 +346,7 @@ void Run::EndOfRun()
         G4double eMin = data.fEmin;
         G4double eMax = data.fEmax;
         
-        G4cout << "  " << std::setw(13) << name << ": " << std::setw(7) << count
+        if (fdebug>1) G4cout << "  " << std::setw(13) << name << ": " << std::setw(7) << count
         << "  Emean = " << std::setw(wid) << G4BestUnit(eMean, "Energy")
         << "\t( "  << G4BestUnit(eMin, "Energy")
         << " --> " << G4BestUnit(eMax, "Energy")
@@ -358,7 +356,7 @@ void Run::EndOfRun()
     if (fdebug>1) std::cout << "particles count in detector" << std::endl;
     // particles count in detector
     //
-    G4cout << "\n List of generated particles in detector:" << G4endl;
+    if (fdebug>1) G4cout << "\n List of generated particles in detector:" << G4endl;
     
     std::map<G4String,ParticleData>::iterator itn;
     for (itn = fParticleDataMap2.begin(); itn != fParticleDataMap2.end(); itn++) {
@@ -369,12 +367,12 @@ void Run::EndOfRun()
         G4double eMin = data.fEmin;
         G4double eMax = data.fEmax;
         
-        G4cout << "  " << std::setw(13) << name << ": " << std::setw(7) << count
+        if (fdebug>1) G4cout << "  " << std::setw(13) << name << ": " << std::setw(7) << count
         << "  Emean = " << std::setw(wid) << G4BestUnit(eMean, "Energy")
         << "\t( "  << G4BestUnit(eMin, "Energy")
         << " --> " << G4BestUnit(eMax, "Energy") << ")" << G4endl;
     }
-    G4cout << G4endl;
+    if (fdebug>1) G4cout << G4endl;
     
     if (fdebug>1) std::cout << "activities in VR mode" << std::endl;
     // activities in VR mode
@@ -393,9 +391,7 @@ void Run::EndOfRun()
 }
 
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
-
-void Run::WriteActivity(G4int nevent)
-{
+void Run::WriteActivity(G4int nevent) {
     G4ProcessTable *pTable = G4ProcessTable::GetProcessTable();
     G4Radioactivation* rDecay = (G4Radioactivation *)
     pTable->FindProcess("Radioactivation", "GenericIon");

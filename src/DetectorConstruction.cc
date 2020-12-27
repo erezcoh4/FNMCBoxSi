@@ -13,7 +13,7 @@
 #include "G4Sphere.hh"
 #include "G4LogicalVolume.hh"
 #include "G4PVPlacement.hh"
-
+#include "G4Trd.hh"
 #include "G4GeometryManager.hh"
 #include "G4PhysicalVolumeStore.hh"
 #include "G4LogicalVolumeStore.hh"
@@ -47,6 +47,9 @@ G4VPhysicalVolume* DetectorConstruction::Construct(){
 
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
 void DetectorConstruction::DefineMaterials() {
+    if (fdebug>1){
+        std::cout << "DetectorConstruction::DefineMaterials()" << std::endl;
+    }
     // build materials
     G4Element* N  = new G4Element("Nitrogen", "N", 7, 14.01*g/mole);
     G4Element* O  = new G4Element("Oxygen",   "O", 8, 16.00*g/mole);
@@ -64,8 +67,13 @@ void DetectorConstruction::DefineMaterials() {
     // scintillation materials from [http://www.sixiangguo.net/code/geant4/AppDevelop/apas06.html]
     //    fDetectorMater = man->FindOrBuildMaterial("G4_PLASTIC_SC_VINYLTOLUENE");
     fDetectorMater = man->FindOrBuildMaterial("G4_STILBENE");
-    // we should implememt AMCRYS UPS-113 here?
+    // ToDo: implememt AMCRYS UPS-113
     
+    // light-cone
+    // Poly(methyl methacrylate)
+    // other names: PMMA, Methyl methacrylate resin, Perspex [https://en.wikipedia.org/wiki/Poly(methyl_methacrylate)]
+    fLightConeMater = man->FindOrBuildMaterial("G4_PLEXIGLASS");
+
     
     // SiPMs
     fSiPMMater = man->FindOrBuildMaterial("G4_Si");;
@@ -90,7 +98,8 @@ G4VPhysicalVolume* DetectorConstruction::ConstructVolumes(){
     G4bool DoSourceHolder       = TRUE;
     G4bool DoSourcePlaceHolder  = FALSE;
     G4bool DoScintillators      = TRUE;
-    G4bool DoSiPMs              = FALSE;
+    G4bool DoLightCones         = TRUE;
+    G4bool DoSiPMs              = TRUE;
     G4bool DoElectronicPlates   = FALSE;
     
     // Cleanup old geometry
@@ -149,8 +158,8 @@ G4VPhysicalVolume* DetectorConstruction::ConstructVolumes(){
                                                      fWorldMater ,
                                                      "logicSourcePlaceHolder",
                                                      0,0,0);
-        SourceRed = G4Colour(1.0, 0.1, 0.2);
-        sourceVisAttributes = new G4VisAttributes(SourceRed);
+        SourceColor = G4Colour(1.0, 0.1, 0.2);
+        sourceVisAttributes = new G4VisAttributes(SourceColor);
         logicSourcePlaceHolder->SetVisAttributes(sourceVisAttributes);
         new G4PVPlacement(0,                                  // no rotation
                           G4ThreeVector(0,Source_y,0),        // at (x,y,z)
@@ -165,14 +174,27 @@ G4VPhysicalVolume* DetectorConstruction::ConstructVolumes(){
     
     // Scintillators
     if (DoScintillators){
-        ScintBlue = G4Colour(0.1, 0.2, 1.0);
-        ScintVisAttributes = new G4VisAttributes(ScintBlue);
+        
+        
+        FacetColor = G4Colour(0.6, 0.6 ,0.6);
+        FacetVisAttributes = new G4VisAttributes(FacetColor);
+        
+        ScintillatorColor = G4Colour(0.1, 0.2, 1.0);
+        ScintVisAttributes = new G4VisAttributes(ScintillatorColor);
+        
+        LightConeColor = G4Colour(0.2, 0.5, 0.7);
+        LightConeVisAttributes = new G4VisAttributes(LightConeColor);
+
+        SiPMColor = G4Colour(0.3, 0.85, 0.2);
+        SiPMVisAttributes = new G4VisAttributes(SiPMColor);
+
+
         
         for (int facetIdx=0; facetIdx < NFacets; facetIdx++){
             
             // determine z according to facet idx
             G4ThreeVector FacetCentroid = GetFacetCentroid(facetIdx);
-            if (fdebug>1){
+            if (fdebug>2){
                 std::cout << "building facet " << FacetName(facetIdx) << ", "
                 << "centroid at ("
                 << FacetCentroid.x() << "," << FacetCentroid.y() << ","  << FacetCentroid.z()
@@ -183,18 +205,10 @@ G4VPhysicalVolume* DetectorConstruction::ConstructVolumes(){
             // G4RotationMatrix * FacetRotation = GetFacetRotation(facetIdx);
             G4Rotate3D FacetRot3D = GetFacetRot3D(facetIdx);
             // facet - a mother volume for multiple scintillators and SiPMs, made of air
-            G4Colour FacetGrey(0.6, 0.6, 0.6);
-            FacetVisAttributes = new G4VisAttributes(FacetGrey);
             
-            solidFacet[facetIdx] = new G4Box( FacetName(facetIdx) + " facet",
-                                             FacetSide/2.,
-                                             FacetSide/2.,
-                                             FacetThickness/2.);
-            logicFacet[facetIdx] = new G4LogicalVolume(solidFacet[facetIdx],
-                                                       fWorldMater ,
-                                                       "logic "+FacetName(facetIdx) + " facet",
-                                                       0,0,0);
             
+            solidFacet[facetIdx] = new G4Box( FacetName(facetIdx),FacetSide/2.,FacetSide/2.,FacetThickness/2.);
+            logicFacet[facetIdx] = new G4LogicalVolume(solidFacet[facetIdx], fWorldMater ,FacetName(facetIdx),0,0,0);
             logicFacet[facetIdx] -> SetVisAttributes(FacetVisAttributes);
             
             // facet translation, followed by rotation, followed by another translation inside facet
@@ -208,28 +222,18 @@ G4VPhysicalVolume* DetectorConstruction::ConstructVolumes(){
             
             for (int cellIdx_i=0; cellIdx_i < NCells_i; cellIdx_i++){
                 for (int cellIdx_j=0; cellIdx_j < NCells_j; cellIdx_j++){
+                    // scintillators
+                    if (DoScintillators){
+                    posInFacet = GetScintillatorPositionInFacet(cellIdx_i,cellIdx_j);
                     
-                    
-                    
-                    
-                    // scintillator position
-                    // ----------------------
-                    // 1. translation of facet centre
-                    // 2. rotate axes frame to facet
-                    // 3. position scintillator in centroid + dl(i) x i + dl(j) x j in i and j directions
-                    //                int dl_i = Get_dl_i_facet(cellIdx);
-                    //                int dl_j = Get_dl_j_facet(cellIdx);
-                    
-                    G4ThreeVector posInFacet = GetScintillatorPositionInFacet(cellIdx_i,cellIdx_j);
-                    
-                    solidScintillator[facetIdx][cellIdx_i][cellIdx_j] = new G4Box("solid"+ScintillatorLabel(facetIdx,cellIdx_i,cellIdx_j),
+                    solidScintillator[facetIdx][cellIdx_i][cellIdx_j] = new G4Box(ScintillatorLabel(facetIdx,cellIdx_i,cellIdx_j),
                                                                                   ScintillatorSide/2.,
                                                                                   ScintillatorSide/2.,
                                                                                   ScintillatorThickness/2.);
                     logicScintillator[facetIdx][cellIdx_i][cellIdx_j] = new G4LogicalVolume(solidScintillator[facetIdx][cellIdx_i][cellIdx_j],
-                                                            fDetectorMater ,
-                                                            "logic"+ScintillatorLabel(facetIdx,cellIdx_i,cellIdx_j),
-                                                            0,0,0);
+                                                                                            fDetectorMater ,
+                                                                                            ScintillatorLabel(facetIdx,cellIdx_i,cellIdx_j),
+                                                                                            0,0,0);
                     
                     logicScintillator[facetIdx][cellIdx_i][cellIdx_j] -> SetVisAttributes(ScintVisAttributes);
                     
@@ -241,15 +245,75 @@ G4VPhysicalVolume* DetectorConstruction::ConstructVolumes(){
                                       logicFacet[facetIdx],      // its mother  volume
                                       false,           // no boolean operations
                                       0);              // copy number
-                                        
-                    
-                    if (fdebug>1) {
-                        std::cout << "constructing " << ScintillatorLabel(facetIdx,cellIdx_i,cellIdx_j)
-                        << ", position in facet: ("
-                        << posInFacet.x() << "," << posInFacet.y() << "," << posInFacet.z() << ")"
-                        << std::endl;
-                    }
+                        if (fdebug>2) {
+                            std::cout << "constructing " << ScintillatorLabel(facetIdx,cellIdx_i,cellIdx_j)
+                            << ", position in facet: ("
+                            << posInFacet.x() << "," << posInFacet.y() << "," << posInFacet.z() << ")"
+                            << std::endl;
+                        }
 
+                    }
+                    
+                    // light cones
+                    if (DoLightCones){
+                        G4ThreeVector posInFacetLightCone = (posInFacet
+                                                             + G4ThreeVector(0,0, -ScintillatorThickness/2)
+                                                             + G4ThreeVector(0,0, -LightConeThickness/2));
+                        
+                        solidLightCone[facetIdx][cellIdx_i][cellIdx_j] = new G4Trd(LightConeLabel(facetIdx,cellIdx_i,cellIdx_j),
+                                                                                   SiPMSide/2,
+                                                                                   ScintillatorSide/2,
+                                                                                   SiPMSide/2,
+                                                                                   ScintillatorSide/2,
+                                                                                   LightConeThickness/2);
+                        logicLightCone[facetIdx][cellIdx_i][cellIdx_j] = new G4LogicalVolume(solidLightCone[facetIdx][cellIdx_i][cellIdx_j],
+                                                                                        fLightConeMater ,
+                                                                                        LightConeLabel(facetIdx,cellIdx_i,cellIdx_j),
+                                                                                        0,0,0);
+                        
+                        logicLightCone[facetIdx][cellIdx_i][cellIdx_j] -> SetVisAttributes(LightConeVisAttributes);
+
+                        new G4PVPlacement(0,                // no relative rotation. Rotation is defined by facet
+                                          posInFacetLightCone,       // position at (x,y,z)
+                                          logicLightCone[facetIdx][cellIdx_i][cellIdx_j],    // its logical volume
+                                          LightConeLabel(facetIdx,cellIdx_i,cellIdx_j),       // its name
+                                          logicFacet[facetIdx],      // its mother  volume
+                                          false,           // no boolean operations
+                                          0);              // copy number
+                    }
+                    
+                    // SiPMs
+                    if (DoSiPMs){
+                        G4ThreeVector posInFacetSiPM = (posInFacet
+                                                        + G4ThreeVector(0,0, -ScintillatorThickness/2)
+                                                        + G4ThreeVector(0,0, -LightConeThickness)
+                                                        + G4ThreeVector(0,0, -SiPMThickness/2));
+                        
+                        solidSiPM[facetIdx][cellIdx_i][cellIdx_j] = new G4Box(SiPMLabel(facetIdx,cellIdx_i,cellIdx_j),
+                                                                              SiPMSide/2.,
+                                                                              SiPMSide/2.,
+                                                                              SiPMThickness/2.);
+                        logicSiPM[facetIdx][cellIdx_i][cellIdx_j] = new G4LogicalVolume(solidSiPM[facetIdx][cellIdx_i][cellIdx_j],
+                                                                                        fSiPMMater ,
+                                                                                        SiPMLabel(facetIdx,cellIdx_i,cellIdx_j),
+                                                                                        0,0,0);
+                        
+                        logicSiPM[facetIdx][cellIdx_i][cellIdx_j] -> SetVisAttributes(SiPMVisAttributes);
+                        
+                        // facet translation, followed by rotation, followed by another translation inside facet
+                        new G4PVPlacement(0,                // no relative rotation. Rotation is defined by facet
+                                          posInFacetSiPM,       // position at (x,y,z)
+                                          logicSiPM[facetIdx][cellIdx_i][cellIdx_j],    // its logical volume
+                                          SiPMLabel(facetIdx,cellIdx_i,cellIdx_j),       // its name
+                                          logicFacet[facetIdx],      // its mother  volume
+                                          false,           // no boolean operations
+                                          0);              // copy number
+                        
+                    }
+                    
+                    // electronic plates
+                    if (DoElectronicPlates){}
+                    
                 }  // end for cellIdx_j
             } // end for cellIdx_i
         }// end for facetIdx
@@ -259,135 +323,11 @@ G4VPhysicalVolume* DetectorConstruction::ConstructVolumes(){
         // <--- end scintillators
     }
     
-    
-    // SiPMs
-//    if (DoSiPMs){
-//        SiPMGreen = G4Colour(0.1, 0.9, 0.2);
-//        SiPMVisAttributes = new G4VisAttributes(SiPMGreen);
-//
-//        positionSiPM_1 = G4ThreeVector(0 , 0 ,
-//                                       (sourceHolder_dz/2. + Scint_dz
-//                                        + thickness_wrapping/2.
-//                                        + Scint_source_dz/2.
-//                                        + SiPM_dz/2.) );
-//        solidSiPM_1 = new G4Box("solidSiPM_1", SiPM_dx/2., SiPM_dy/2., SiPM_dz/2.);
-//        logicSiPM_1 = new G4LogicalVolume(solidSiPM_1,
-//                                          fSiPMMater ,
-//                                          "logicSiPM_1",
-//                                          0,0,0);
-//        logicSiPM_1->SetVisAttributes(SiPMVisAttributes);
-//
-//        new G4PVPlacement(0,              // no rotation
-//                          positionSiPM_1, // at (x,y,z)
-//                          logicSiPM_1,    // its logical volume
-//                          "SiPM_1",       // its name
-//                          logicWorld,      // its mother  volume
-//                          false,           // no boolean operations
-//                          0);              // copy number
-//
-//        positionSiPM_2 = G4ThreeVector(0 , 0 ,
-//                                       -(sourceHolder_dz/2. + Scint_dz
-//                                         + thickness_wrapping/2.
-//                                         + Scint_source_dz/2.
-//                                         + SiPM_dz/2.) );
-//        solidSiPM_2 = new G4Box("solidSiPM_2", SiPM_dx/2., SiPM_dy/2., SiPM_dz/2.);
-//        logicSiPM_2 = new G4LogicalVolume(solidSiPM_2,
-//                                          fSiPMMater ,
-//                                          "logicSiPM_2",
-//                                          0,0,0);
-//
-//        logicSiPM_2->SetVisAttributes(SiPMVisAttributes);
-//        new G4PVPlacement(0,              // no rotation
-//                          positionSiPM_2, // at (x,y,z)
-//                          logicSiPM_2,    // its logical volume
-//                          "SiPM_2",       // its name
-//                          logicWorld,      // its mother  volume
-//                          false,           // no boolean operations
-//                          0);              // copy number
-//
-//    }
-    
-    
-//    if (DoElectronicPlates){
-//        ElectronicsColor = G4Colour(0.6, 0.8, 0.6);
-//        ElectronicsVisAttributes = new G4VisAttributes(ElectronicsColor);
-//
-//        positionElectronics_1 = G4ThreeVector(0 , 0 ,
-//                                              (sourceHolder_dz/2. + Scint_dz
-//                                               + thickness_wrapping/2.
-//                                               + Scint_source_dz/2.
-//                                               + SiPM_dz/2.
-//                                               + Electronics_dz/2.) );
-//        solidElectronics_1 = new G4Box("solidSiPM_1", Electronics_dx/2., Electronics_dy/2., Electronics_dz/2.);
-//        logicElectronics_1 = new G4LogicalVolume(solidElectronics_1,
-//                                                 fElectronicsMaterial ,
-//                                                 "logicElectronics_1",
-//                                                 0,0,0);
-//        logicElectronics_1->SetVisAttributes(ElectronicsVisAttributes);
-//
-//        new G4PVPlacement(0,              // no rotation
-//                          positionElectronics_1, // at (x,y,z)
-//                          logicElectronics_1,    // its logical volume
-//                          "Electronics_1",       // its name
-//                          logicWorld,      // its mother  volume
-//                          false,           // no boolean operations
-//                          0);              // copy number
-//
-//        positionElectronics_2 = G4ThreeVector(0 , 0 ,
-//                                              -(sourceHolder_dz/2. + Scint_dz
-//                                                + thickness_wrapping/2.
-//                                                + Scint_source_dz/2.
-//                                                + SiPM_dz/2.
-//                                                + Electronics_dz/2.) );
-//        solidElectronics_2 = new G4Box("solidElectronics_2", Electronics_dx/2., Electronics_dy/2., Electronics_dz/2.);
-//        logicElectronics_2 = new G4LogicalVolume(solidElectronics_2,
-//                                                 fElectronicsMaterial ,
-//                                                 "logicElectronics_2",
-//                                                 0,0,0);
-//
-//        logicElectronics_2->SetVisAttributes(ElectronicsVisAttributes);
-//        new G4PVPlacement(0,              // no rotation
-//                          positionElectronics_2, // at (x,y,z)
-//                          logicElectronics_2,    // its logical volume
-//                          "Electronics_2",       // its name
-//                          logicWorld,      // its mother  volume
-//                          false,           // no boolean operations
-//                          0);              // copy number
-//    }
-    
-    
-    
-    
-    G4cout << "done G4VPhysicalVolume* DetectorConstruction::ConstructVolumes()." << G4endl;
+    if (fdebug>1) G4cout << "done G4VPhysicalVolume* DetectorConstruction::ConstructVolumes()." << G4endl;
     // return the root volume
     return fPhysiWorld;
 }
 
 //....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
 void DetectorConstruction::PrintParameters(){
-    //    G4cout << "\n Target : Length = " << G4BestUnit(fTargetLength,"Length")
-    //    << " Radius = " << G4BestUnit(fTargetRadius,"Length")
-    //    << " Material = " << fTargetMater->GetName();
-    //    G4cout << "\n Detector : Length = " << G4BestUnit(fDetectorLength,"Length")
-    //    << " Tickness = " << G4BestUnit(fDetectorThickness,"Length")
-    //    << " Material = " << fDetectorMater->GetName() << G4endl;
-    //    G4cout << "\n" << fTargetMater << "\n" << fDetectorMater << G4endl;
 }
-
-////....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
-//void DetectorConstruction::SetTargetRadius(G4double value){
-//    fTargetRadius = value;
-//    G4RunManager::GetRunManager()->ReinitializeGeometry();
-//}
-
-////....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
-//void DetectorConstruction::SetTargetLength(G4double value){
-//    fTargetLength = value;
-//    G4RunManager::GetRunManager()->ReinitializeGeometry();
-//}
-
-////....oooOO0OOooo........oooOO0OOooo........oooOO0OOooo........oooOO0OOooo......
-//void DetectorConstruction::SetDetectorThickness(G4double value){
-//    fDetectorThickness = value;
-//    G4RunManager::GetRunManager()->ReinitializeGeometry();
-//}

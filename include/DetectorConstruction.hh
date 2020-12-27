@@ -15,13 +15,15 @@
 #include "G4SystemOfUnits.hh"
 #include "G4PhysicalConstants.hh"
 #include "G4RotationMatrix.hh"
+#include "G4Trd.hh"
 
 // general characteristics: number of faces, and numebr of Scintillator/SiPM cells per facet
-#define NFacets 3
+#define NFacets 6
 // number of cells
 // NCellsPerFacet = NCells_i x NCells_j
-#define NCells_i 3
-#define NCells_j 3
+#define NCells_i 9
+#define NCells_j 9
+
 
 
 class G4LogicalVolume;
@@ -38,60 +40,55 @@ class DetectorConstruction : public G4VUserDetectorConstruction {
     // ----------------------------------------------------------------------------------------------------
     // dimensions
     // ----------------------------------------------------------------------------------------------------
-    // scintillators
-    G4double ScintillatorThickness  = 40.   *mm; // thickness can genrally differ from side length
-    G4double ScintillatorSide       = 50.   *mm; // scintillator transverse cross-section is rectangular
-    G4double ScintillatorPitch      = 10    *mm; // separation distance between scintillators
-    G4double thickness_wrapping     = 0.1   *mm;
     // source and source holder
     G4double Source_y               = 0.    *mm;
     G4double sourceHolder_dz        = 0.5   *mm;
-    // SiPMs [https://www.ketek.net/wp-content/uploads/2018/12/KETEK-PM3325-WB-D0-Datasheet.pdf]
-    G4double SiPM_dx                = 3.    *mm;
-    G4double SiPM_dy                = 3.    *mm;
-    G4double SiPM_dz                = 0.6   *mm;
+    // scintillators
+    G4double ScintillatorThickness  = 300.   *mm; // thickness can genrally differ from side length
+    // ------------------------------------------------------------
+    G4double ScintillatorSide       = 50.   *mm; // scintillator transverse cross-section is rectangular
+    G4double ScintillatorPitch      = 10    *mm; // separation distance between scintillators
+    G4double thickness_wrapping     = 0.1   *mm;
+    // light cones
+    G4double LightConeThickness     = 100.   *mm;
+    // SiPMs
+    //    // KETEK [https://www.ketek.net/wp-content/uploads/2018/12/KETEK-PM3325-WB-D0-Datasheet.pdf]
+    //    G4double SiPMSide               = 3.    *mm;
+    // SensL
+    G4double SiPMSide               = 6.    *mm;
+    G4double SiPMThickness          = 0.6   *mm;
     // PCB and electronics - rough estimation
     G4double Electronics_dx         = 20.   *mm;
     G4double Electronics_dy         = 20.   *mm;
     G4double Electronics_dz         = 2     *mm;
-    // sampling box
-    G4double SamplingBoxSide        = 100.  *mm;
-    // world
-    G4double fWorldLength           = 1.2*SamplingBoxSide + 10*(ScintillatorThickness + SiPM_dz + Electronics_dz) ;
     // facets
-    G4double FacetSide              = ScintillatorSide * NCells_i * 1.01;
-    G4double FacetThickness         = ScintillatorThickness * 2;
+    G4double FacetSide              = (ScintillatorSide + ScintillatorPitch) * NCells_i * 1.1;
+    G4double FacetThickness         = (ScintillatorThickness + LightConeThickness + SiPMThickness)*1.01;
+    // sampling box
+    G4double SamplingBoxMargin      = 2.    *mm;
+    G4double SamplingBoxSide        = std::max(NCells_i, NCells_j) * ScintillatorSide/2 + SamplingBoxMargin ; //100.  *mm;
+    // world
+    G4double fWorldLength           = 1.2*SamplingBoxSide + 5*FacetThickness ;
     // ----------------------------------------------------------------------------------------------------
     
     
     
-    
+    // prints
+    void Debug (int verobosity_level, std::string text) { if ( fdebug > verobosity_level ) std::cout << text << std::endl; }
+
     
     
   public:
   
     virtual G4VPhysicalVolume* Construct();
-    
     void SetDebug(int _fdebug_=0 ){fdebug=_fdebug_;};
-                   
     void PrintParameters();
-    
-    
-       
-    
     
     
   public:
       
     
     int fdebug;
-    
-    
-    
-
-    
-    
-    
 
     
     G4double                GetTargetRadius();
@@ -113,59 +110,16 @@ class DetectorConstruction : public G4VUserDetectorConstruction {
     // ----------------
     
     
-    // VolumeName
-    std::string VolumeName(int iVol=0){
-        std::string name = "unknown-volume";
-        switch (iVol) {
-            case 0:
-                name = "source-holder";
-                break;
-            case 1:
-                name = "scint-1";
-                break;
-            case 2:
-                name = "scint-2";
-                break;
-            case 3:
-                name = "world";
-                break;
-            case 4:
-                name = "SiPM-1";
-                break;
-            case 5:
-                name = "SiPM-2";
-                break;
-            case 6:
-                name = "Electronics-1";
-                break;
-            case 7:
-                name = "Electronics-2";
-                break;
-
-            default:
-                name = "unknown-volume";
-                break;
-        }
-        return name;
-    }
     
-    // output file-label
-    char * GetOutputFileLabel(){
+    
+    // labels and names
+    G4String GetOutputFileLabel(){
         char filelabel[100];
-        sprintf(filelabel, "SamplingBoxSide%.1fmm_NFacets%d_NCellsPerFacet%d",
-                            SamplingBoxSide, NFacets, NCells_i*NCells_j );
-        return filelabel;
+        sprintf(filelabel, "SamplingBoxSide%.1fmm_NFacets%d_NCellsPerFacet%d_SciThickness%.1fmm",
+                            SamplingBoxSide, NFacets, (NCells_i*NCells_j) , ScintillatorThickness);
+        return G4String(filelabel);
     };
-    
-    // scintillator label
-    G4String ScintillatorLabel(int facetIdx, int cellIdx_i, int cellIdx_j){
-        char scintillatorlabel[50];
-        sprintf(scintillatorlabel,"Scintillator[%s][%d][%d]",FacetName(facetIdx).c_str(),cellIdx_i,cellIdx_j);
-        return G4String(scintillatorlabel);
-    }
-
-    // facet name
-    std::string FacetName(int facetIdx=0){
+    G4String            FacetName(int facetIdx=0){
         std::string name = "unknown-facet";
         switch (facetIdx) {
             case 0:
@@ -175,7 +129,7 @@ class DetectorConstruction : public G4VUserDetectorConstruction {
                 name = "top";
                 break;
             case 2:
-                name = "face";
+                name = "front";
                 break;
             case 3:
                 name = "back";
@@ -192,6 +146,58 @@ class DetectorConstruction : public G4VUserDetectorConstruction {
         }
         return name;
     }
+    G4String    ScintillatorLabel(int facetIdx=0, int cellIdx_i=0, int cellIdx_j=0){
+        char scintillatorlabel[50];
+        sprintf(scintillatorlabel,"Scintillator[%s][%d][%d]",FacetName(facetIdx).c_str(),cellIdx_i,cellIdx_j);
+        return G4String(scintillatorlabel);
+    }
+    G4String       LightConeLabel(int facetIdx=0, int cellIdx_i=0, int cellIdx_j=0){
+        char lightconelabel[50];
+        sprintf(lightconelabel,"LightCone[%s][%d][%d]",FacetName(facetIdx).c_str(),cellIdx_i,cellIdx_j);
+        return G4String(lightconelabel);
+    }
+    G4String            SiPMLabel(int facetIdx=0, int cellIdx_i=0, int cellIdx_j=0){
+        char sipmlabel[50];
+        sprintf(sipmlabel,"SiPM[%s][%d][%d]",FacetName(facetIdx).c_str(),cellIdx_i,cellIdx_j);
+        return G4String(sipmlabel);
+    }
+//    G4String           VolumeName(int iVol=0){
+//        std::string name = "unknown-volume";
+//        switch (iVol) {
+//            case 0:
+//                name = "source-holder";
+//                break;
+//            case 1:
+//                name = "scint-1";
+//                break;
+//            case 2:
+//                name = "scint-2";
+//                break;
+//            case 3:
+//                name = "world";
+//                break;
+//            case 4:
+//                name = "SiPM-1";
+//                break;
+//            case 5:
+//                name = "SiPM-2";
+//                break;
+//            case 6:
+//                name = "Electronics-1";
+//                break;
+//            case 7:
+//                name = "Electronics-2";
+//                break;
+//
+//            default:
+//                name = "unknown-volume";
+//                break;
+//        }
+//        return name;
+//    }
+
+    
+    
 
     // get logic scintillator
     G4LogicalVolume *  GetLogicScintillator(int facetIdx, int cellIdx_i, int cellIdx_j){
@@ -201,7 +207,7 @@ class DetectorConstruction : public G4VUserDetectorConstruction {
     // facet centroid
     G4ThreeVector GetFacetCentroid(int facetIdx=0){
         G4double x = -9999,y = -9999,z = -9999;
-        G4double dl = SamplingBoxSide/2 + FacetSide/2 ;
+        G4double dl = SamplingBoxSide + FacetThickness/2 ;
         switch (facetIdx) {
             case 0: // bottom
                 x = 0;
@@ -242,10 +248,10 @@ class DetectorConstruction : public G4VUserDetectorConstruction {
         G4Rotate3D FacetRot3D;
         switch (facetIdx) {
             case 0: // bottom
-                FacetRot3D = G4Rotate3D( 90.*deg , G4ThreeVector(1,0,0) );
+                FacetRot3D = G4Rotate3D( -90.*deg , G4ThreeVector(1,0,0) );
                 break;
             case 1: // top
-                FacetRot3D = G4Rotate3D( -90.*deg , G4ThreeVector(1,0,0) );
+                FacetRot3D = G4Rotate3D( 90.*deg , G4ThreeVector(1,0,0) );
                 break;
             case 2: // front
                 FacetRot3D = G4Rotate3D( -90.*deg , G4ThreeVector(0,1,0) );
@@ -267,32 +273,23 @@ class DetectorConstruction : public G4VUserDetectorConstruction {
         // in the facet axes frame (i,j,k)
         // the scintillator is located in k=0
         // and i,j are determined by the cell indices
-        G4double dl_i = (ScintillatorSide + ScintillatorPitch) * (cellIdx_i-NCells_j/2) ;//* (NCells_i-1)/2;
-        G4double dl_j = (ScintillatorSide + ScintillatorPitch) * (cellIdx_j-NCells_j/2); //(float(cellIdx_j)/NCells_j - 1./2);
-        G4double dl_k = 0;
+        // here the number of cells is assumed odd
+        // does not support even number of cells yet
+        if (NCells_i%2==0 || NCells_j%2==0) {
+            std::cout
+            << std::endl << "xxxxxxxxxxxxx" << std::endl
+            << "do not support even number of cells per facet, (" << NCells_i << "," << NCells_j << "), returning."
+            << std::endl << "xxxxxxxxxxxxx" << std::endl;
+        }
+        G4double dl_i = (ScintillatorSide + ScintillatorPitch) * (cellIdx_i-NCells_i/2) ;
+        G4double dl_j = (ScintillatorSide + ScintillatorPitch) * (cellIdx_j-NCells_j/2) ;
+        G4double dl_k = FacetThickness/2 - ScintillatorThickness/2;
         return G4ThreeVector( dl_i , dl_j , dl_k );
     }
 
     
     
     
-    
-//    1
-//    0
-//    40*0/2
-//    2
-//    -20 20
-//    40/2*-1 40/2*1
-//    3
-//    -40 0 +40
-//    40/2*-2 40/2*0 40/2*2
-//    4
-//    -60 -20 20 60
-//    40/2*-3 40/2*-1 40/2*1 40/2*3
-//    5
-//    -80 -40 0 40 80
-//    40/2*-4 40/2*-2 40/2*0 40/2*2 40/2*4
-
     
     
     
@@ -310,9 +307,7 @@ class DetectorConstruction : public G4VUserDetectorConstruction {
     G4double           fTargetRadius;
     G4double           fDetectorLength;
     G4double           fDetectorThickness;
-    
-    
-    
+            
     
     G4VPhysicalVolume* fPhysiWorld;
     DetectorMessenger* fDetectorMessenger;
@@ -331,7 +326,8 @@ class DetectorConstruction : public G4VUserDetectorConstruction {
     // ----------------
     
     G4Sphere * sourcePlaceHolder;
-    
+    G4Trd * solidLightCone[NFacets][NCells_i][NCells_j];
+
     
     
     G4Material*        fTargetMater;
@@ -340,7 +336,8 @@ class DetectorConstruction : public G4VUserDetectorConstruction {
     G4Material*        fElectronicsMaterial;
     G4Material*        fDetectorMater;
     G4Material*        fWorldMater;
-
+    G4Material*        fLightConeMater;
+    
     G4ThreeVector posSourceHolder;
     // obselete - delete
     G4ThreeVector positionScint_1, positionScint_2;
@@ -351,7 +348,8 @@ class DetectorConstruction : public G4VUserDetectorConstruction {
     G4ThreeVector positionScintillator[NFacets][NCells_i][NCells_j];
     G4ThreeVector positionSiPM[NFacets][NCells_i][NCells_j];
     G4ThreeVector positionElectronics[NFacets][NCells_i][NCells_j];
-
+    G4ThreeVector posInFacet;
+    
     // obselete - delete
     G4LogicalVolume * logicSiPM_1, * logicSiPM_2;
     G4LogicalVolume * logicElectronics_1, * logicElectronics_2;
@@ -362,12 +360,15 @@ class DetectorConstruction : public G4VUserDetectorConstruction {
     G4LogicalVolume * logicWorld;
     G4LogicalVolume * logicSourceHolder;
     G4LogicalVolume * logicSourcePlaceHolder;
+    G4LogicalVolume * logicLightCone[NFacets][NCells_i][NCells_j];
 
     G4Colour SourceHolderColor;
-    G4Colour SourceRed;
-    G4Colour ScintBlue;
-    G4Colour SiPMGreen;
+    G4Colour SourceColor;
+    G4Colour ScintillatorColor;
+    G4Colour SiPMColor;
     G4Colour ElectronicsColor;
+    G4Colour FacetColor;
+    G4Colour LightConeColor;
 
     G4VisAttributes * SourceHolderVisAttributes;
     G4VisAttributes * sourceVisAttributes;
@@ -375,6 +376,7 @@ class DetectorConstruction : public G4VUserDetectorConstruction {
     G4VisAttributes * ScintVisAttributes;
     G4VisAttributes * SiPMVisAttributes;
     G4VisAttributes * ElectronicsVisAttributes;
+    G4VisAttributes * LightConeVisAttributes;
 
     
   private:
